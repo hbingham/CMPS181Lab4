@@ -35,6 +35,11 @@ RC RelationManager::createCatalog()
     if (rc)
         return rc;
 
+// create Index table
+    rc = rbfm->createFile(getFileName(INDEX_TABLE_NAME));
+    if (rc)
+	return rc;
+
     // Add table entries for both Tables and Columns
     rc = insertTable(TABLES_TABLE_ID, 1, TABLES_TABLE_NAME);
     if (rc)
@@ -42,7 +47,11 @@ RC RelationManager::createCatalog()
     rc = insertTable(COLUMNS_TABLE_ID, 1, COLUMNS_TABLE_NAME);
     if (rc)
         return rc;
+//add table entry for index table
 
+    rc = insertTable(INDEX_TABLE_ID, 1, INDEX_TABLE_NAME);
+    if (rc)
+	return rc;
 
     // Add entries for tables and columns to Columns table
     rc = insertColumns(TABLES_TABLE_ID, tableDescriptor);
@@ -51,7 +60,10 @@ RC RelationManager::createCatalog()
     rc = insertColumns(COLUMNS_TABLE_ID, columnDescriptor);
     if (rc)
         return rc;
-
+//add entries for index to columns table
+    rc = insertColumns(INDEX_TABLE_ID, indexDescriptor);
+    if (rc)
+	return rc;
     return SUCCESS;
 }
 
@@ -69,6 +81,11 @@ RC RelationManager::deleteCatalog()
     rc = rbfm->destroyFile(getFileName(COLUMNS_TABLE_NAME));
     if (rc)
         return rc;
+
+    rc = rbfm->destroyFile(getFileName(INDEX_TABLE_NAME));
+    if (rc)
+        return rc;
+
 
     return SUCCESS;
 }
@@ -493,6 +510,44 @@ vector<Attribute> RelationManager::createColumnDescriptor()
 
     return cd;
 }
+
+
+vector<Attribute> RelationManager::createIndexDescriptor()
+{
+   vector<Attribute> ixd;
+
+//code form tables
+    Attribute attr;
+    attr.name = INDEX_COL_TABLE_NAME;
+    attr.type = TypeVarChar;
+    attr.length = (AttrLength)INDEX_COL_TABLE_NAME_SIZE;
+    ixd.push_back(attr);
+
+    attr.name = INDEX_COL_FILE_NAME;
+    attr.type = TypeVarChar;
+    attr.length = (AttrLength)INDEX_COL_FILE_NAME_SIZE;
+    ixd.push_back(attr);
+
+    attr.name = INDEX_COL_ATTRIBUTE_NAME;
+    attr.type = TypeVarChar;
+    attr.length = (AttrLength)INDEX_COL_ATTRIBUTE_NAME_SIZE;
+    ixd.push_back(attr);
+
+    attr.name = INDEX_COL_ATTRIBUTE_TYPE;
+    attr.type = TypeInt;
+    attr.length = (AttrLength)INT_SIZE;
+    ixd.push_back(attr);
+
+    attr.name = INDEX_COL_ATTRIBUTE_LENGTH;
+    attr.type = TypeInt;
+    attr.length = (AttrLength)INT_SIZE;
+    ixd.push_back(attr);
+
+    return ixd;
+
+}
+
+
 
 // Creates the Tables table entry for the given id and tableName
 // Assumes fileName is just tableName + file extension

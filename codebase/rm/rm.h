@@ -41,6 +41,21 @@ using namespace std;
 // 1 null byte, 4 integer fields and a varchar
 #define COLUMNS_RECORD_DATA_SIZE 1 + 5 * INT_SIZE + COLUMNS_COL_COLUMN_NAME_SIZE
 
+//format for index table
+
+#define INDEX_TABLE_NAME "Index"
+#define INDEX_TABLE_ID 3
+
+#define INDEX_COL_TABLE_NAME "table-name"
+#define INDEX_COL_FILE_NAME "file-name"
+#define INDEX_COL_ATTRIBUTE_NAME "attribute-name"
+#define INDEX_COL_ATTRIBUTE_TYPE "attribute-type"
+#define INDEX_COL_ATTRIBUTE_LENGTH "attribute-length"
+#define INDEX_COL_TABLE_NAME_SIZE  50
+#define INDEX_COL_FILE_NAME_SIZE   50
+#define INDEX_COL_ATTRIBUTE_NAME_SIZE 50
+
+#define INDEX_RECORD_DATA_SIZE 1 + 5 * INT_SIZE + INDEX_COL_TABLE_NAME_SIZE + INDEX_COL_FILE_NAME_SIZE +INDEX_COL_ATTRIBUTE_NAME_SIZE
 # define RM_EOF (-1)  // end of a scan operator
 
 #define RM_CANNOT_MOD_SYS_TBL 1
@@ -144,6 +159,7 @@ private:
   static RelationManager *_rm;
   const vector<Attribute> tableDescriptor;
   const vector<Attribute> columnDescriptor;
+  const vector<Attribute> indexDescriptor;
 
   // Convert tableName to file name (append extension)
   static string getFileName(const char *tableName);
@@ -152,6 +168,7 @@ private:
   // Create recordDescriptor for Table/Column tables
   static vector<Attribute> createTableDescriptor();
   static vector<Attribute> createColumnDescriptor();
+  static vector<Attribute> createIndexDescriptor();
 
   // Prepare an entry for the Table/Column table
   void prepareTablesRecordData(int32_t id, bool system, const string &tableName, void *data);
