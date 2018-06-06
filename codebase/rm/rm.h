@@ -6,10 +6,12 @@
 #include <vector>
 
 #include "../rbf/rbfm.h"
+#include "../ix/ix.h"
 
 using namespace std;
 
 #define TABLE_FILE_EXTENSION ".t"
+#define INDEX_FILE_EXTENSION ".i"
 
 #define TABLES_TABLE_NAME           "Tables"
 #define TABLES_TABLE_ID             1
@@ -164,6 +166,8 @@ private:
   // Convert tableName to file name (append extension)
   static string getFileName(const char *tableName);
   static string getFileName(const string &tableName);
+  static string getIndexFileName(const char *tableName);
+  static string getIndexFileName(const string &tableName);
 
   // Create recordDescriptor for Table/Column tables
   static vector<Attribute> createTableDescriptor();

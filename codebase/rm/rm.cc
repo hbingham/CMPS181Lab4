@@ -1,5 +1,7 @@
 
+
 #include "rm.h"
+#include "../ix/ix.h"
 
 #include <algorithm>
 #include <cstring>
@@ -25,6 +27,7 @@ RelationManager::~RelationManager()
 
 RC RelationManager::createCatalog()
 {
+    printf("we up in here");
     RecordBasedFileManager *rbfm = RecordBasedFileManager::instance();
     // Create both tables and columns tables, return error if either fails
     RC rc;
@@ -65,6 +68,7 @@ RC RelationManager::createCatalog()
     if (rc)
 	return rc;
     return SUCCESS;
+    printf("have we broke yet?");
 }
 
 // Just delete the the two catalog files
@@ -296,6 +300,7 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 
 RC RelationManager::insertTuple(const string &tableName, const void *data, RID &rid)
 {
+    printf("holy shit\n");
     RecordBasedFileManager *rbfm = RecordBasedFileManager::instance();
     RC rc;
 
@@ -449,6 +454,17 @@ string RelationManager::getFileName(const string &tableName)
 {
     return tableName + string(TABLE_FILE_EXTENSION);
 }
+
+string RelationManager::getIndexFileName(const char *tableName)
+{
+    return string(tableName) + string(INDEX_FILE_EXTENSION);
+}
+
+string RelationManager::getIndexFileName(const string &tableName)
+{
+    return tableName + string(INDEX_FILE_EXTENSION);
+}
+
 
 vector<Attribute> RelationManager::createTableDescriptor()
 {
@@ -914,6 +930,48 @@ RC RM_ScanIterator::close()
 
 RC RelationManager::createIndex(const string &tableName, const string &attributeName)
 {
+    IndexManager *ixm = IndexManager::instance();
+    RecordBasedFileManager *rbfm = RecordBasedFileManager::instance();
+//create index file
+    RC rc = ixm->createFile(getIndexFileName(tableName));
+    if (rc)
+	return rc;
+//get record descriptor of the table to be indexed
+    vector<Attribute> recordDescriptor;
+    rc = getAttributes(tableName, recordDescriptor);
+    if (rc)
+	return rc;
+//find attribute with matching name
+    for (int i = 0; i < recordDescriptor.size(); i++)
+   {
+	
+   }
+
+
+
+
+
+
+    // We need to get the three values that make up an Attribute: name, type, length
+    // We also need the position of each attribute in the row
+    RBFM_ScanIterator rbfm_si;
+    vector<string> projection;
+    projection.push_back(COLUMNS_COL_COLUMN_NAME);
+    projection.push_back(COLUMNS_COL_COLUMN_TYPE);
+    projection.push_back(COLUMNS_COL_COLUMN_LENGTH);
+    projection.push_back(COLUMNS_COL_COLUMN_POSITION);
+
+    FileHandle fileHandle;
+    rc = rbfm->openFile(getFileName(tableName), fileHandle);
+    if (rc)
+        return rc;
+
+    RID rid;
+    void *data = malloc(COLUMNS_RECORD_DATA_SIZE);
+
+
+
+
         return -1;
 }
 
