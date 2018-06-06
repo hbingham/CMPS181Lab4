@@ -204,6 +204,8 @@ private:
   void toAPI(const float real, void *data);
   void toAPI(const int32_t integer, void *data);
   void toAPI(const string &str, void *data);
+  //PROJECT 4 HELPER FUNCTIONS
+  RC getIndexFileNames(vector<string> &fileNames, const string &tableName);
 
 };
 
