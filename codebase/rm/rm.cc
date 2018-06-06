@@ -741,7 +741,7 @@ RC RelationManager::insertIndex(const string &tableName, Attribute attr)
     RecordBasedFileManager *rbfm = RecordBasedFileManager::instance();
     //create file object
     FileHandle fileHandle;
-    rc = rbfm->openFile(getFileName(COLUMNS_TABLE_NAME), fileHandle);
+    rc = rbfm->openFile(getFileName(INDEX_TABLE_NAME), fileHandle);
     if (rc)
         return rc;
     //prepare index catalogue entry
@@ -1066,7 +1066,73 @@ RC RelationManager::createIndex(const string &tableName, const string &attribute
 
 RC RelationManager::destroyIndex(const string &tableName, const string &attributeName)
 {
-        return -1;
+    //Delete the file.
+    IndexManager *ixm = IndexManager::instance();
+    RecordBasedFileManager *rbfm = RecordBasedFileManager::instance();
+    RC rc;
+
+    string indexFileName = getIndexFileName(tableName, attributeName);
+    rc = ixm->destroyFile(indexFileName);
+    if (rc)
+        return rc;
+
+
+    //For deleting from catalog.
+
+    //Get table ID
+    int32_t id;
+    rc = getTableID(tableName, id);
+    if (rc)
+        return rc;
+
+    // Open tables file
+//i believe this filehandle is being assigned to an index file instead of the tables file
+//additionally, theres nothing to remove from the tables file
+//we need to remove the entry from the index file
+    FileHandle fileHandle;
+    rc = rbfm->openFile(getIndexFileName(tableName, attributeName), fileHandle);
+    if (rc)
+        return rc;
+
+    // Find entry with same table ID
+    // Use empty projection because we only care about RID
+    RBFM_ScanIterator rbfmsi;
+    vector<string> projection; // Empty
+//why is projection empty?
+    string name = getIndexFileName(tableName, attributeName);
+    void *value;
+    memcpy(&value, &name, sizeof(name));
+
+    rc = rbfm->scan(fileHandle, tableDescriptor, INDEX_COL_FILE_NAME, EQ_OP, value, projection, rbfmsi);
+
+    RID rid;
+    rc = rbfmsi.getNextRecord(rid, NULL);
+    if (rc)
+        return rc;
+
+    // Delete RID from table and close file
+    rbfm->deleteRecord(fileHandle, tableDescriptor, rid);
+    rbfm->closeFile(fileHandle);
+    rbfmsi.close();
+
+
+/*
+    // Find all of the entries whose table-id equal this table's ID
+    rbfm->scan(fileHandle, columnDescriptor, COLUMNS_COL_TABLE_ID, EQ_OP, value, projection, rbfm_si);
+
+    while((rc = rbfm_si.getNextRecord(rid, NULL)) == SUCCESS)
+    {
+        // Delete each result with the returned RID
+        rc = rbfm->deleteRecord(fileHandle, columnDescriptor, rid);
+        if (rc)
+            return rc;
+    }
+    if (rc != RBFM_EOF)
+        return rc;
+
+    rbfm->closeFile(fileHandle);
+    rbfm_si.close();
+*/
 }
 
 RC RelationManager::indexScan(const string &tableName,
