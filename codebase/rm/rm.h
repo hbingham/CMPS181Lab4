@@ -166,8 +166,10 @@ private:
   // Convert tableName to file name (append extension)
   static string getFileName(const char *tableName);
   static string getFileName(const string &tableName);
-  static string getIndexFileName(const char *tableName);
-  static string getIndexFileName(const string &tableName);
+  static string getIndexFileName(const char *tableName, const string &attrName);
+  static string getIndexFileName(const string &tableName, const string &attrName);
+  static string getIndexFileName(const char *tableName, const char *attrName);
+  static string getIndexFileName(const string &tableName, const char *attrName);
 
   // Create recordDescriptor for Table/Column tables
   static vector<Attribute> createTableDescriptor();
@@ -177,12 +179,14 @@ private:
   // Prepare an entry for the Table/Column table
   void prepareTablesRecordData(int32_t id, bool system, const string &tableName, void *data);
   void prepareColumnsRecordData(int32_t id, int32_t pos, Attribute attr, void *data);
+  void prepareIndexRecordData(const string &tableName, Attribute attr, void *data);
 
   // Given a table ID and recordDescriptor, creates entries in Column table
   RC insertColumns(int32_t id, const vector<Attribute> &recordDescriptor);
   // Given table ID, system flag, and table name, creates entry in Table table
   RC insertTable(int32_t id, int32_t system, const string &tableName);
 
+  RC insertIndex(const string &tableName, Attribute attr);
   // Get next table ID for creating table
   RC getNextTableID(int32_t &table_id);
   // Get table ID of table with name tableName
