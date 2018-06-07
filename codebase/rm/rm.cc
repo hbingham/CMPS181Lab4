@@ -411,7 +411,8 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
     }
     printf("Where am i\n");
     free(dat);
-    free(scanValue);
+    //free(scanValue);
+    if (rc == RM_EOF) return SUCCESS;
     return rc;
 }
 
