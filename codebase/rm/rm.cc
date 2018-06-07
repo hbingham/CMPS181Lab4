@@ -298,7 +298,6 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
     IndexManager *ixm = IndexManager::instance();
     RecordBasedFileManager *rbfm = RecordBasedFileManager::instance();
     RC rc;
-printf("beginning\n");
     // If this is a system table, we cannot modify it
     bool isSystem;
     rc = isSystemTable(isSystem, tableName);
@@ -322,7 +321,6 @@ printf("beginning\n");
     // Let rbfm do all the work
     rc = rbfm->insertRecord(fileHandle, recordDescriptor, data, rid);
     rbfm->closeFile(fileHandle);
-printf("we let rbfm do all the work\n");
 
 
     // We need to get the three values that make up an Attribute: name, type, length
@@ -333,24 +331,22 @@ printf("we let rbfm do all the work\n");
     projection.push_back(INDEX_COL_ATTRIBUTE_NAME);
     projection.push_back(INDEX_COL_ATTRIBUTE_TYPE);
     projection.push_back(INDEX_COL_ATTRIBUTE_LENGTH);
-printf("projection worked ensure chane\n");
-    printf("pre-Open file");
+
     rc = rbfm->openFile(getFileName(INDEX_TABLE_NAME), fileHandle);
     if (rc)
-{
-        printf("recode: %d\n", rc);
         return rc;
-}
 
-printf("we opened the indextable!");
+//save tableNameLen and tableName to a scan value
+    int32_t tableNameLength = sizeof(tableName);
+    void *scanValue = malloc(tableNameLength + INT_SIZE);
+    memcpy(&scanValue, &tableNameLength, INT_SIZE);
+    memcpy(&scanValue + 4, &tableName, tableNameLength);
+
+
     // Scan through the Index table for all entries whose table name equals tableName's table id.
-    rc = rbfm->scan(fileHandle, indexDescriptor, INDEX_COL_TABLE_NAME, EQ_OP, &tableName, projection, rbfm_si);
+    rc = rbfm->scan(fileHandle, indexDescriptor, INDEX_COL_TABLE_NAME, EQ_OP, &scanValue, projection, rbfm_si);
     if (rc)
-{
-	printf("recode: %d\n", rc);
         return rc;
-}
-printf("index scan worked");    
     void *dat = malloc(PAGE_SIZE);
     RID rd;
     // Read in name, type, length of attr
@@ -413,6 +409,9 @@ printf("index scan worked");
             return rc;
 */
     }
+    printf("Where am i\n");
+    free(dat);
+    free(scanValue);
     return rc;
 }
 
@@ -735,7 +734,7 @@ void RelationManager::prepareColumnsRecordData(int32_t id, int32_t pos, Attribut
 void RelationManager::prepareIndexRecordData(const string &tableName, Attribute attr, void *data)
 {
     unsigned offset = 0;
-    string index_file_name = getFileName(tableName);
+    string index_file_name = getIndexFileName(tableName, attr.name);
     int32_t attr_name_len = attr.name.length();
     int32_t table_name_len = tableName.length();
     int32_t file_name_len = index_file_name.length();
@@ -746,7 +745,6 @@ void RelationManager::prepareIndexRecordData(const string &tableName, Attribute 
     // Copy in null indicator
     memcpy((char*) data + offset, &null, 1);
     offset += 1;
-    
     // Copy in varchar table name
     memcpy((char*) data + offset, &table_name_len, VARCHAR_LENGTH_SIZE);
     offset += VARCHAR_LENGTH_SIZE;
@@ -1098,6 +1096,7 @@ RC RM_ScanIterator::close()
 
 RC RelationManager::createIndex(const string &tableName, const string &attributeName)
 {
+    printf("create Index is called\n");
     IndexManager *ixm = IndexManager::instance();
     RecordBasedFileManager *rbfm = RecordBasedFileManager::instance();
 //create index file
@@ -1119,6 +1118,7 @@ RC RelationManager::createIndex(const string &tableName, const string &attribute
 	   break;
 	}
     }
+printf("we got to this point\n");
     if (attrPos == -1) return -1;
 //open ixFile
     IXFileHandle ixhandle;
@@ -1147,10 +1147,6 @@ RC RelationManager::createIndex(const string &tableName, const string &attribute
 	if (rc)
 	   return rc;
     }
-//insert index into index catalog
-    rc = insertIndex(tableName, recordDescriptor[attrPos]);
-    if (rc)
-	return rc;
 //close files
     rc = ixm->closeFile(ixhandle);
     if (rc)
@@ -1158,6 +1154,12 @@ RC RelationManager::createIndex(const string &tableName, const string &attribute
     rc = rbfm ->closeFile(fileHandle);
     if (rc)
 	return rc;
+//insert index into index catalog
+    free(data);
+    Attribute theAttr = recordDescriptor[attrPos];
+    rc = insertIndex(tableName, theAttr);
+    if (rc)
+        return rc;
         return SUCCESS;
 }
 
@@ -1182,6 +1184,7 @@ RC RelationManager::destroyIndex(const string &tableName, const string &attribut
     RBFM_ScanIterator rbfmsi;
     vector<string> projection; // Empty
     string name = getIndexFileName(tableName, attributeName);
+//TO BE FIXED :: APPEND VARCHAR SIZE TO VALUE
     void *value;
     memcpy(&value, &name, sizeof(name));
 //initialize scan on index catalog

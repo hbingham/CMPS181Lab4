@@ -398,12 +398,10 @@ int populateLeftTable() {
 	RC rc = success;
 	RID rid;
 	void *buf = malloc(bufSize);
-	
 	// GetAttributes
     vector<Attribute> attrs;
     rc = rm->getAttributes("left", attrs);
     assert(rc == success && "RelationManager::getAttributes() should not fail.");
-
     int nullAttributesIndicatorActualSize = getActualByteForNullsIndicator(attrs.size());
     unsigned char *nullsIndicator = (unsigned char *) malloc(nullAttributesIndicatorActualSize);
 	memset(nullsIndicator, 0, nullAttributesIndicatorActualSize);
@@ -677,7 +675,6 @@ int deleteAndCreateCatalog() {
   // Try to delete the System Catalog.
   // If this is the first time, it will generate an error. It's OK and we will ignore that.
   RC rc = rm->deleteCatalog();
-
   rc = rm->createCatalog();
   assert (rc == success && "Creating the Catalog should not fail.");
   

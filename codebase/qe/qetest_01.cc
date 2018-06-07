@@ -22,7 +22,6 @@ int testCase_1() {
 		cerr << "***** createIndexforLeftB() failed.  *****" << endl;
 		return rc;
 	}
-
 	// Insert tuples.
 	rc = populateLeftTable();
 	if (rc != success) {
