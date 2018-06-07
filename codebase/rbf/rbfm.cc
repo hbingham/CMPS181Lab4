@@ -532,10 +532,11 @@ RC RBFM_ScanIterator::scanInit(FileHandle &fh,
 
 RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data)
 {
+printf("1\n");
     RC rc = getNextSlot();
     if (rc)
         return rc;
-
+printf("1.5\n");
     // If we are not returning any results, we can just set the RID and return
     if (attributeNames.size() == 0)
     {
@@ -543,14 +544,14 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data)
         rid.slotNum = currSlot++;
         return SUCCESS;
     }
-
+printf("2\n");
     // Prepare null indicator
     unsigned nullIndicatorSize = rbfm->getNullIndicatorSize(attributeNames.size());
     char nullIndicator[nullIndicatorSize];
     memset(nullIndicator, 0, nullIndicatorSize);
 
     SlotDirectoryRecordEntry recordEntry = rbfm->getSlotDirectoryRecordEntry(pageData, currSlot);
-
+printf("3\n");
     // Unsure how large each attribute will be, set to size of page to be safe
     void *buffer = malloc(PAGE_SIZE);
     if (buffer == NULL)
@@ -558,7 +559,7 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data)
 
     // Keep track of offset into data
     unsigned dataOffset = nullIndicatorSize;
-
+printf("4\n");
     for (unsigned i = 0; i < attributeNames.size(); i++)
     {
         // Get index and type of attribute in record
@@ -603,7 +604,7 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data)
     }
     // Finally set null indicator of data, clean up and return
     memcpy((char*)data, nullIndicator, nullIndicatorSize);
-
+printf("5\n");
     free (buffer);
     rid.pageNum = currPage;
     rid.slotNum = currSlot++;
@@ -614,30 +615,39 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data)
 
 RC RBFM_ScanIterator::getNextSlot()
 {
+printf("gns1\n");
     // If we're done with the current page, or we've read the last page
     if (currSlot >= totalSlot || currPage >= totalPage)
     {
         // Reinitialize the current slot and increment page number
         currSlot = 0;
         currPage++;
+printf("gns2\n");
+
         // If we're done with last page, return EOF
         if (currPage >= totalPage)
             return RBFM_EOF;
+printf("gns3\n");
         // Otherwise get next page ready
         RC rc = getNextPage();
+printf("gns4\n");
         if (rc)
             return rc;
     }
 
     // Get slot header, check to see if valid and meets scan condition
     SlotDirectoryRecordEntry recordEntry = rbfm->getSlotDirectoryRecordEntry(pageData, currSlot);
+printf("gns5\n");
 
     if (rbfm->getSlotStatus(recordEntry) != VALID || !checkScanCondition())
     {
+printf("gns6\n");
         // If not, try next slot
         currSlot++;
         return getNextSlot();
     }
+printf("gns7\n");
+
     return SUCCESS;
 }
 

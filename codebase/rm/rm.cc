@@ -17,7 +17,7 @@ RelationManager* RelationManager::instance()
 }
 
 RelationManager::RelationManager()
-: tableDescriptor(createTableDescriptor()), columnDescriptor(createColumnDescriptor())
+: tableDescriptor(createTableDescriptor()), columnDescriptor(createColumnDescriptor()), indexDescriptor(createIndexDescriptor())
 {
 }
 
@@ -298,7 +298,7 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
     IndexManager *ixm = IndexManager::instance();
     RecordBasedFileManager *rbfm = RecordBasedFileManager::instance();
     RC rc;
-
+printf("beginning\n");
     // If this is a system table, we cannot modify it
     bool isSystem;
     rc = isSystemTable(isSystem, tableName);
@@ -322,6 +322,8 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
     // Let rbfm do all the work
     rc = rbfm->insertRecord(fileHandle, recordDescriptor, data, rid);
     rbfm->closeFile(fileHandle);
+printf("we let rbfm do all the work\n");
+
 
     // We need to get the three values that make up an Attribute: name, type, length
     // We also need the position of each attribute in the row
@@ -331,59 +333,66 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
     projection.push_back(INDEX_COL_ATTRIBUTE_NAME);
     projection.push_back(INDEX_COL_ATTRIBUTE_TYPE);
     projection.push_back(INDEX_COL_ATTRIBUTE_LENGTH);
-
-    FileHandle fh;
-    rc = rbfm->openFile(getFileName(INDEX_TABLE_NAME), fh);
+printf("projection worked ensure chane\n");
+    printf("pre-Open file");
+    rc = rbfm->openFile(getFileName(INDEX_TABLE_NAME), fileHandle);
     if (rc)
+{
+        printf("recode: %d\n", rc);
         return rc;
+}
 
+printf("we opened the indextable!");
     // Scan through the Index table for all entries whose table name equals tableName's table id.
-    rc = rbfm->scan(fh, indexDescriptor, INDEX_COL_TABLE_NAME, EQ_OP, &tableName, projection, rbfm_si);
+    rc = rbfm->scan(fileHandle, indexDescriptor, INDEX_COL_TABLE_NAME, EQ_OP, &tableName, projection, rbfm_si);
     if (rc)
+{
+	printf("recode: %d\n", rc);
         return rc;
-    
-    
-    void *dat = malloc(INDEX_RECORD_DATA_SIZE);
-
+}
+printf("index scan worked");    
+    void *dat = malloc(PAGE_SIZE);
+    RID rd;
     // Read in name, type, length of attr
-    while ((rc = rbfm_si.getNextRecord(rid, dat)) == SUCCESS)
+    while ((rc = rbfm_si.getNextRecord(rd, dat)) == SUCCESS)
     {
+/*
+	printf("WE ARE IN A LOOP");
         // For each entry, create an IndexedAttr, and fill it with the 4 results
         IndexedAttr attr;
         unsigned offset = 0;
-
         // For the Columns table, there should never be a null column
         char null;
-        memcpy(&null, data, 1);
+        memcpy(&null, dat, 1);
         if (null)
             rc = RM_NULL_COLUMN;
 
         // Read in name
         offset = 1;
         int32_t nameLen;
-        memcpy(&nameLen, (char*) data + offset, VARCHAR_LENGTH_SIZE);
+        memcpy(&nameLen, (char*) dat + offset, VARCHAR_LENGTH_SIZE);
         offset += VARCHAR_LENGTH_SIZE;
         char name[nameLen + 1];
         name[nameLen] = '\0';
-        memcpy(name, (char*) data + offset, nameLen);
+        memcpy(name, (char*) dat + offset, nameLen);
         offset += nameLen;
         attr.attr.name = string(name);
 
         // read in type
         int32_t type;
-        memcpy(&type, (char*) data + offset, INT_SIZE);
+        memcpy(&type, (char*) dat + offset, INT_SIZE);
         offset += INT_SIZE;
         attr.attr.type = (AttrType)type;
 
         // Read in length
         int32_t length;
-        memcpy(&length, (char*) data + offset, INT_SIZE);
+        memcpy(&length, (char*) dat + offset, INT_SIZE);
         offset += INT_SIZE;
         attr.attr.length = length;
 
         // Read in position
         int32_t pos;
-        memcpy(&pos, (char*) data + offset, INT_SIZE);
+        memcpy(&pos, (char*) dat + offset, INT_SIZE);
         offset += INT_SIZE;
         attr.pos = pos;
         
@@ -402,8 +411,8 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
         rc = ixm->insertEntry(ix, attr.attr, key, rd);
         if (rc)
             return rc;
+*/
     }
-
     return rc;
 }
 
