@@ -1,29 +1,67 @@
-1. Basic information
-Team number (e.g., 01) : 
-#1 Student ID : 
-#1 Student Name : 
-#2 Student ID : 
-#2 Student Name : 
-#3 Student ID : 
-#3 Student Name : 
+Basic information
+Team number (e.g., 01) : 13
+
+#1 Student ID : 1415490
+#1 Student Name : Hunter Bingham
+
+#2 Student ID : 1404451
+#2 Student Name : Kevin Prabhu
+
+#3 Student ID : 1351750
+#3 Student Name : Ian Hardy
 
 
 2. Catalog information about Index
 - Show what catalog information you store for an index. 
+The catalog creates an index table, as well as a columns for this index table.
+	indexData stores the index table entry data. Each index table entry stores a null indicator, a varchar with teh table name, a varchar with the file name, a varchar with the attribute name, as well as the attribute type, and the attribute length.them here.
+
 
 
 3. Index Nested Loop Join
 - Describe how your Index Nested Loop Join works.
 
+We didn't implement this, but a rough idea of how to make it work:
+
+	get attributes from the left, and right
+iterate through tuples, starting with the first on the left and first on the right. if equal, join the two records. The indexed relation should be the inner relation for the join. the idea here is we want to be iterating through the indexed relation, instead of the non-indexed relation. so, we compare each value in the non-indexed relation with every value in the indexed relation.
+	
+	
+
 
 4. Implementation Detail
 - Have you added your own source file (.cc or .h)?
+We have not added our own source files.
 
-- Have you implemented any optional features? Then, describe them here.
+- Have you implemented any optional features? Then, describe We have not implemented any optional features.
 
 - Other implementation details:
+
+RelationManager
+createIndex:
+	this function creates an index given the tablename and attribute name. It functions similarly to createTable with a few modifications. we call getattributes on the table to get the attributes in the table, and check to make sure that an attribute with a name that matches attributeName is passed in. we then initialize a scan on the table. We then insert entries into the index, then close the file ix file, as well as the rbfm file, and insert the index into the index catalog using the insertIndex helper function
+
+insertIndex:
+	helper function to insert the given index into the index table. It opens the Index table, and adds in the indexrecord data, which is prepared in the prepareIndexrecordData function.
+
+prepareIndexRecordData:
+	prepares the index table entry for given table name and attribute, copying in the null indicator, table name, file name, attribute name, attribute type, and attribute length
+
+destroyIndex:
+	Delete the index file, then open up the index catalog. Find the RID of the index in the index table, then delete the RID, and close the file.
+
+indexScan:
+	Opens index for given tableName and attributeName, then gets the record descriptor for the given tableName. We then get the attribute from the record descriptor, and then we use ix_scaniterator to do the rest of the work. 
+
+RM_IndexScanIterator
+getNextEntry:
+	just call ix_iterator.getNextEntry
+	
+
+close:
+	close the ix_iterator, then create a new index manager instance and call closefile on the ixFileHandle
+	
 
 
 5. Other (optional)
 - Freely use this section to tell us about things that are related to the project 4, but not related to the other sections (optional)
-

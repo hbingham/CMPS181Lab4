@@ -415,7 +415,6 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
 }
 
 
-
 RC RelationManager::deleteTuple(const string &tableName, const RID &rid)
 {
     RecordBasedFileManager *rbfm = RecordBasedFileManager::instance();
@@ -440,13 +439,110 @@ RC RelationManager::deleteTuple(const string &tableName, const RID &rid)
     rc = rbfm->openFile(getFileName(tableName), fileHandle);
     if (rc)
         return rc;
+    
+    // DELETE FROM INDEXES
+    IndexManager *ixm = IndexManager::instance();
+    
+    // We need to get the three values that make up an Attribute: name, type, length
+    // We also need the position of each attribute in the row
+    RBFM_ScanIterator rbfm_si;
+    vector<string> projection;
+    projection.push_back(INDEX_COL_TABLE_NAME);
+    projection.push_back(INDEX_COL_ATTRIBUTE_NAME);
+    projection.push_back(INDEX_COL_ATTRIBUTE_TYPE);
+    projection.push_back(INDEX_COL_ATTRIBUTE_LENGTH);
+
+    FileHandle fH;
+    rc = rbfm->openFile(getFileName(INDEX_TABLE_NAME), fH);
+    if (rc)
+        return rc;
+
+    //save tableNameLen and tableName to a scan value
+    int32_t tableNameLength = tableName.length();
+
+    void *scanValue = malloc(tableNameLength + INT_SIZE);
+    memcpy(scanValue, &tableNameLength, INT_SIZE);
+    memcpy(scanValue + INT_SIZE, &tableName, tableNameLength);
+
+
+    // Scan through the Index table for all entries whose table name equals tableName's table id.
+    rc = rbfm->scan(fH, indexDescriptor, INDEX_COL_TABLE_NAME, EQ_OP, scanValue, projection, rbfm_si);
+    if (rc)
+        return rc;
+    void *dat = malloc(PAGE_SIZE);
+    RID rd;
+    // Read in name, type, length of attr
+    while ((rc = rbfm_si.getNextRecord(rd, dat)) == SUCCESS)
+    {
+        // For each entry, create an IndexedAttr, and fill it with the 4 results
+        IndexedAttr attr;
+        unsigned offset = 0;
+        // For the Columns table, there should never be a null column
+        char null;
+        memcpy(&null, dat, 1);
+        if (null)
+            rc = RM_NULL_COLUMN;
+
+        // Read in name
+        offset = 1;
+        int32_t nameLen;
+        memcpy(&nameLen, (char*) dat + offset, VARCHAR_LENGTH_SIZE);
+        offset += VARCHAR_LENGTH_SIZE;
+        char name[nameLen + 1];
+        name[nameLen] = '\0';
+        memcpy(name, (char*) dat + offset, nameLen);
+        offset += nameLen;
+        attr.attr.name = string(name);
+
+        // read in type
+        int32_t type;
+        memcpy(&type, (char*) dat + offset, INT_SIZE);
+        offset += INT_SIZE;
+        attr.attr.type = (AttrType)type;
+
+        // Read in length
+        int32_t length;
+        memcpy(&length, (char*) dat + offset, INT_SIZE);
+        offset += INT_SIZE;
+        attr.attr.length = length;
+
+        // Read in position
+        int32_t pos;
+        memcpy(&pos, (char*) dat + offset, INT_SIZE);
+        offset += INT_SIZE;
+        attr.pos = pos;
+        
+        //get ixFileHandle
+        IXFileHandle ix;
+        rc = ixm->openFile(getIndexFileName(tableName, attr.attr.name), ix);
+        if (rc)
+            return rc;
+       
+        void *key = malloc(attr.attr.length);
+        //get key from the record we just stored
+        rbfm->readAttribute(fileHandle, recordDescriptor, rid, attr.attr.name, key);
+       
+        //insert tuple into index
+        RID rd;
+        rc = ixm->deleteEntry(ix, attr.attr, key, rd);
+        if (rc)
+            return rc;
+    }
+    
+    //DELETE FROM TABLE
 
     // Let rbfm do all the work
     rc = rbfm->deleteRecord(fileHandle, recordDescriptor, rid);
-    rbfm->closeFile(fileHandle);
-
+    rbfm->closeFile(fileHandle);        
+    
+    rbfm_si.close();
+    free(dat);
+    free(scanValue);
+    if (rc == RM_EOF) return SUCCESS;
     return rc;
 }
+
+
 
 RC RelationManager::updateTuple(const string &tableName, const void *data, const RID &rid)
 {
@@ -473,10 +569,172 @@ RC RelationManager::updateTuple(const string &tableName, const void *data, const
     if (rc)
         return rc;
 
+    // DELETE FROM INDEXES
+    IndexManager *ixm = IndexManager::instance();
+    
+    // We need to get the three values that make up an Attribute: name, type, length
+    // We also need the position of each attribute in the row
+    RBFM_ScanIterator rbfm_si;
+    vector<string> projection;
+    projection.push_back(INDEX_COL_TABLE_NAME);
+    projection.push_back(INDEX_COL_ATTRIBUTE_NAME);
+    projection.push_back(INDEX_COL_ATTRIBUTE_TYPE);
+    projection.push_back(INDEX_COL_ATTRIBUTE_LENGTH);
+
+    FileHandle fH;
+    rc = rbfm->openFile(getFileName(INDEX_TABLE_NAME), fH);
+    if (rc)
+        return rc;
+
+    //save tableNameLen and tableName to a scan value
+    int32_t tableNameLength = tableName.length();
+
+    void *scanValue = malloc(tableNameLength + INT_SIZE);
+    memcpy(scanValue, &tableNameLength, INT_SIZE);
+    memcpy(scanValue + INT_SIZE, &tableName, tableNameLength);
+
+
+    // Scan through the Index table for all entries whose table name equals tableName's table id.
+    rc = rbfm->scan(fH, indexDescriptor, INDEX_COL_TABLE_NAME, EQ_OP, scanValue, projection, rbfm_si);
+    if (rc)
+        return rc;
+    void *dat = malloc(PAGE_SIZE);
+    RID rd;
+    // Read in name, type, length of attr
+    while ((rc = rbfm_si.getNextRecord(rd, dat)) == SUCCESS)
+    {
+        // For each entry, create an IndexedAttr, and fill it with the 4 results
+        IndexedAttr attr;
+        unsigned offset = 0;
+        // For the Columns table, there should never be a null column
+        char null;
+        memcpy(&null, dat, 1);
+        if (null)
+            rc = RM_NULL_COLUMN;
+
+        // Read in name
+        offset = 1;
+        int32_t nameLen;
+        memcpy(&nameLen, (char*) dat + offset, VARCHAR_LENGTH_SIZE);
+        offset += VARCHAR_LENGTH_SIZE;
+        char name[nameLen + 1];
+        name[nameLen] = '\0';
+        memcpy(name, (char*) dat + offset, nameLen);
+        offset += nameLen;
+        attr.attr.name = string(name);
+
+        // read in type
+        int32_t type;
+        memcpy(&type, (char*) dat + offset, INT_SIZE);
+        offset += INT_SIZE;
+        attr.attr.type = (AttrType)type;
+
+        // Read in length
+        int32_t length;
+        memcpy(&length, (char*) dat + offset, INT_SIZE);
+        offset += INT_SIZE;
+        attr.attr.length = length;
+
+        // Read in position
+        int32_t pos;
+        memcpy(&pos, (char*) dat + offset, INT_SIZE);
+        offset += INT_SIZE;
+        attr.pos = pos;
+        
+        //get ixFileHandle
+        IXFileHandle ix;
+        rc = ixm->openFile(getIndexFileName(tableName, attr.attr.name), ix);
+        if (rc)
+            return rc;
+       
+        void *key = malloc(attr.attr.length);
+        //get key from the record we just stored
+        rbfm->readAttribute(fileHandle, recordDescriptor, rid, attr.attr.name, key);
+       
+        //insert tuple into index
+        RID rd;
+        rc = ixm->deleteEntry(ix, attr.attr, key, rd);
+        if (rc)
+            return rc;
+    }
+    
+
     // Let rbfm do all the work
     rc = rbfm->updateRecord(fileHandle, recordDescriptor, data, rid);
     rbfm->closeFile(fileHandle);
+    
+    // INSERT INTO INDEXES
+    
+    // We need to get the three values that make up an Attribute: name, type, length
+    // We also need the position of each attribute in the row
+    
+    // Scan through the Index table for all entries whose table name equals tableName's table id.
+    rc = rbfm->scan(fH, indexDescriptor, INDEX_COL_TABLE_NAME, EQ_OP, scanValue, projection, rbfm_si);
+    if (rc)
+        return rc;
+    RID rd2;
+    // Read in name, type, length of attr
+    while ((rc = rbfm_si.getNextRecord(rd2, dat)) == SUCCESS)
+    {
+        // For each entry, create an IndexedAttr, and fill it with the 4 results
+        IndexedAttr attr;
+        unsigned offset = 0;
+        // For the Columns table, there should never be a null column
+        char null;
+        memcpy(&null, dat, 1);
+        if (null)
+            rc = RM_NULL_COLUMN;
 
+        // Read in name
+        offset = 1;
+        int32_t nameLen;
+        memcpy(&nameLen, (char*) dat + offset, VARCHAR_LENGTH_SIZE);
+        offset += VARCHAR_LENGTH_SIZE;
+        char name[nameLen + 1];
+        name[nameLen] = '\0';
+        memcpy(name, (char*) dat + offset, nameLen);
+        offset += nameLen;
+        attr.attr.name = string(name);
+
+        // read in type
+        int32_t type;
+        memcpy(&type, (char*) dat + offset, INT_SIZE);
+        offset += INT_SIZE;
+        attr.attr.type = (AttrType)type;
+
+        // Read in length
+        int32_t length;
+        memcpy(&length, (char*) dat + offset, INT_SIZE);
+        offset += INT_SIZE;
+        attr.attr.length = length;
+
+        // Read in position
+        int32_t pos;
+        memcpy(&pos, (char*) dat + offset, INT_SIZE);
+        offset += INT_SIZE;
+        attr.pos = pos;
+        
+        //get ixFileHandle
+        IXFileHandle ix;
+        rc = ixm->openFile(getIndexFileName(tableName, attr.attr.name), ix);
+        if (rc)
+            return rc;
+       
+        void *key = malloc(attr.attr.length);
+        //get key from the record we just stored
+        rbfm->readAttribute(fileHandle, recordDescriptor, rid, attr.attr.name, key);
+       
+        //insert tuple into index
+        RID rd;
+        rc = ixm->insertEntry(ix, attr.attr, key, rd);
+        if (rc)
+            return rc;
+    }
+    
+    rbfm_si.close();
+    free(dat);
+    free(scanValue);
+    if (rc == RM_EOF) return SUCCESS;
     return rc;
 }
 
@@ -1237,6 +1495,20 @@ RC RelationManager::indexScan(const string &tableName,
     return SUCCESS;
 }
 
+// for scanning indexes, let ixfm do all the work
+RC RM_IndexScanIterator::getNextEntry(RID &rid, void *key)
+{
+	return ix_iter.getNextEntry(rid, key);
+}
+
+// Close our file handle, rbfm_scaniterator
+RC RM_IndexScanIterator::close()
+{
+	IndexManager *ixm = IndexManager::instance();
+	ix_iter.close();
+    ixm->closeFile(ixFileHandle);
+    return SUCCESS;
+}
 //ADDED HELPER FUNCTIONS FOR PROJECT 4
 
 

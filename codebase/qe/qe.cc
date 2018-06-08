@@ -79,7 +79,9 @@ bool Filter::checkScanCondition(void  * leftVal)
     }
     else
     {
-	memcpy(compVal, leftVal + offset, INT_SIZE);
+	uint32_t someStuiff;
+	memcpy(&someStuiff, leftVal + offset, INT_SIZE);
+	printf("%" PRIu32 "\n",someStuiff);
     }
 
     return true;
