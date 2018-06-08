@@ -337,14 +337,15 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
         return rc;
 
 //save tableNameLen and tableName to a scan value
-    int32_t tableNameLength = sizeof(tableName);
+    int32_t tableNameLength = tableName.length();
+
     void *scanValue = malloc(tableNameLength + INT_SIZE);
-    memcpy(&scanValue, &tableNameLength, INT_SIZE);
-    memcpy(&scanValue + 4, &tableName, tableNameLength);
+    memcpy(scanValue, &tableNameLength, INT_SIZE);
+    memcpy(scanValue + INT_SIZE, &tableName, tableNameLength);
 
 
     // Scan through the Index table for all entries whose table name equals tableName's table id.
-    rc = rbfm->scan(fileHandle, indexDescriptor, INDEX_COL_TABLE_NAME, EQ_OP, &scanValue, projection, rbfm_si);
+    rc = rbfm->scan(fileHandle, indexDescriptor, INDEX_COL_TABLE_NAME, EQ_OP, scanValue, projection, rbfm_si);
     if (rc)
         return rc;
     void *dat = malloc(PAGE_SIZE);
@@ -352,8 +353,6 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
     // Read in name, type, length of attr
     while ((rc = rbfm_si.getNextRecord(rd, dat)) == SUCCESS)
     {
-/*
-	printf("WE ARE IN A LOOP");
         // For each entry, create an IndexedAttr, and fill it with the 4 results
         IndexedAttr attr;
         unsigned offset = 0;
@@ -407,11 +406,10 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
         rc = ixm->insertEntry(ix, attr.attr, key, rd);
         if (rc)
             return rc;
-*/
     }
-    printf("Where am i\n");
+    rbfm_si.close();
     free(dat);
-    //free(scanValue);
+    free(scanValue);
     if (rc == RM_EOF) return SUCCESS;
     return rc;
 }
@@ -1063,7 +1061,7 @@ RC RelationManager::scan(const string &tableName,
     RC rc = rbfm->openFile(getFileName(tableName), rm_ScanIterator.fileHandle);
     if (rc)
         return rc;
-
+printf("the rm scan it\n");
     // grab the record descriptor for the given tableName
     vector<Attribute> recordDescriptor;
     rc = getAttributes(tableName, recordDescriptor);
@@ -1097,7 +1095,6 @@ RC RM_ScanIterator::close()
 
 RC RelationManager::createIndex(const string &tableName, const string &attributeName)
 {
-    printf("create Index is called\n");
     IndexManager *ixm = IndexManager::instance();
     RecordBasedFileManager *rbfm = RecordBasedFileManager::instance();
 //create index file
@@ -1119,7 +1116,6 @@ RC RelationManager::createIndex(const string &tableName, const string &attribute
 	   break;
 	}
     }
-printf("we got to this point\n");
     if (attrPos == -1) return -1;
 //open ixFile
     IXFileHandle ixhandle;
@@ -1211,7 +1207,34 @@ RC RelationManager::indexScan(const string &tableName,
                       bool highKeyInclusive,
                       RM_IndexScanIterator &rm_IndexScanIterator)
 {
-        return -1;
+    
+	// Open the index for the given tableName, attribute name
+	IndexManager *ix = IndexManager::instance();
+    RC rc = ix->openFile(getIndexFileName(tableName, attributeName), rm_IndexScanIterator.ixFileHandle);
+    if (rc)
+        return rc;
+    
+
+    // grab the record descriptor for the given tableName
+    vector<Attribute> recordDescriptor;
+    rc = getAttributes(tableName, recordDescriptor);
+    if (rc)
+        return rc;
+    
+    // get attribute from record descriptor
+    Attribute attr;
+    for(int i=0; i<recordDescriptor.size(); i++){
+    	if(recordDescriptor[i].name == attributeName)
+    		attr = recordDescriptor[i];
+    }
+
+    // Use the underlying ix_scaniterator to do all the work
+    rc = ix->scan(rm_IndexScanIterator.ixFileHandle, attr, lowKey,
+    			highKey, lowKeyInclusive, highKeyInclusive, rm_IndexScanIterator.ix_iter);
+    if (rc)
+        return rc;
+    
+    return SUCCESS;
 }
 
 //ADDED HELPER FUNCTIONS FOR PROJECT 4
