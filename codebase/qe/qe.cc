@@ -1,3 +1,5 @@
+#include <inttypes.h>
+#include <cmath>
 #include <typeinfo>
 #include <string>
 #include <cstring>
@@ -12,45 +14,76 @@ Filter::Filter(Iterator* input, const Condition &condition) {
 
     cond.rhsAttr = condition.rhsAttr;
     cond.rhsValue = condition.rhsValue;
+    attrs.clear();
+    input->getAttributes(attrs);
 }
+
+
+
+
 
 RC Filter::getNextTuple(void * data)
 {
     RID rid;
     RC rc;
-    TableScan *ts = dynamic_cast<TableScan *>(iter);
-    if (ts)
-    {
-	rc = ts->iter->getNextTuple(rid, data);
-	printf("theRCis: %d\n", rc);
-	return rc;
-    }
-    IndexScan *is = dynamic_cast<IndexScan *>(iter);
-    if (is)
-    {
-	printf("some other logic!\n");
-    }
+    rc = iter->getNextTuple(data);
+    checkScanCondition(data);
+    return rc;
     return QE_EOF;
 }
-// ... the rest of your implementations go here
 
-
-bool Filter::checkScanCondition()
+void Filter::getAttributes(vector<Attribute> &attrs) const
 {
-    if (compOp == NO_OP) return true;
-    if (value == NULL) return false;
-    Attribute attr = recordDescriptor[attrIndex];
-    // Allocate enough memory to hold attribute and 1 byte null indicator
-    void *data = malloc(1 + attr.length);
-    // Get record entry to get offset
-    SlotDirectoryRecordEntry recordEntry = rbfm->getSlotDirectoryRecordEntry(pageData, currSlot);
-    // Grab the given attribute and store it in data
-    rbfm->getAttributeFromRecord(pageData, recordEntry.offset, attrIndex, attr.type, data);
+    attrs.clear();
+    attrs = this->attrs;
+}
 
 
-    char null;
-    memcpy(&null, data, 1);
 
+bool Filter::checkScanCondition(void  * leftVal)
+{
+    if (cond.op == NO_OP) return true;
+    void * compVal = malloc(PAGE_SIZE);
+    uint32_t attrIndex, varCharLen;
+
+//offset = that because of nullByte(s)
+    unsigned offset = ceil((float)attrs.size()/8);
+    for(int i = 0; i < attrs.size(); i++)
+    {
+	if(strcmp(attrs[i].name.c_str(), cond.lhsAttr.c_str()) == 0)
+	{
+	    attrIndex = i;
+	    break;
+	}
+	if (attrs[i].type == TypeVarChar)
+	{
+	    memcpy(&varCharLen, leftVal + offset, INT_SIZE);
+	    offset += INT_SIZE + varCharLen;
+	    printf("The varCharLen: %d\n", varCharLen);
+	}
+	else 
+	{
+	    offset+= INT_SIZE;
+	}
+    }
+
+    if (attrIndex == attrs.size())
+    {
+	printf("couldnt find the attribute hmm\n");
+	return 69;
+    }
+
+    if(attrs[attrIndex].type == TypeVarChar)
+    {
+	printf("we dont go here yet\n");
+    }
+    else
+    {
+	memcpy(compVal, leftVal + offset, INT_SIZE);
+    }
+
+    return true;
+/*
     bool result = false;
     if (null)
     {   
@@ -83,5 +116,5 @@ bool Filter::checkScanCondition()
     }
     free (data);
     return result;
+*/
 }
-
