@@ -1061,7 +1061,7 @@ RC RelationManager::scan(const string &tableName,
     RC rc = rbfm->openFile(getFileName(tableName), rm_ScanIterator.fileHandle);
     if (rc)
         return rc;
-printf("the rm scan it\n");
+
     // grab the record descriptor for the given tableName
     vector<Attribute> recordDescriptor;
     rc = getAttributes(tableName, recordDescriptor);

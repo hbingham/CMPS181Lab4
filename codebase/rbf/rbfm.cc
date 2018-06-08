@@ -639,7 +639,6 @@ RC RBFM_ScanIterator::getNextSlot()
         currSlot++;
         return getNextSlot();
     }
-
     return SUCCESS;
 }
 
@@ -709,7 +708,6 @@ bool RBFM_ScanIterator::checkScanCondition(int recordInt, CompOp compOp, const v
 {
     int32_t intValue;
     memcpy (&intValue, value, INT_SIZE);
-
     switch (compOp)
     {
         case EQ_OP: return recordInt == intValue;
