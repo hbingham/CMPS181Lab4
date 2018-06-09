@@ -206,6 +206,9 @@ class Filter : public Iterator {
 	Condition cond;
 	vector<Attribute> attrs;
 	bool checkScanCondition(void  * leftVal);
+	bool checkScanCondition(char *recordString);
+	bool checkScanCondition(uint32_t recordInt);
+	bool checkScanCondition(float recordReal);
 };
 
 

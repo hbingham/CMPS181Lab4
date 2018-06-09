@@ -26,10 +26,16 @@ RC Filter::getNextTuple(void * data)
 {
     RID rid;
     RC rc;
-    rc = iter->getNextTuple(data);
-    checkScanCondition(data);
+    bool theCond;
+    while (rc = iter->getNextTuple(data) == SUCCESS)
+    {
+	if (theCond = checkScanCondition(data))
+{
+	   break;
+}
+    }
+    if(!theCond) return -1;
     return rc;
-    return QE_EOF;
 }
 
 void Filter::getAttributes(vector<Attribute> &attrs) const
@@ -59,7 +65,6 @@ bool Filter::checkScanCondition(void  * leftVal)
 	{
 	    memcpy(&varCharLen, leftVal + offset, INT_SIZE);
 	    offset += INT_SIZE + varCharLen;
-	    printf("The varCharLen: %d\n", varCharLen);
 	}
 	else 
 	{
@@ -72,51 +77,108 @@ bool Filter::checkScanCondition(void  * leftVal)
 	printf("couldnt find the attribute hmm\n");
 	return 69;
     }
-
+    bool result = false;
     if(attrs[attrIndex].type == TypeVarChar)
     {
-	printf("we dont go here yet\n");
-    }
-    else
-    {
-	uint32_t someStuiff;
-	memcpy(&someStuiff, leftVal + offset, INT_SIZE);
-	printf("%" PRIu32 "\n",someStuiff);
-    }
-
-    return true;
-/*
-    bool result = false;
-    if (null)
-    {   
-        result = false;
-    }
-    // Checkscan condition on record data and scan value
-    else if (attr.type == TypeInt)
-    {
-        int32_t recordInt;
-        memcpy(&recordInt, (char*)data + 1, INT_SIZE);
-        result = checkScanCondition(recordInt, compOp, value);
-    }
-    else if (attr.type == TypeReal)
-    {
-        float recordReal;
-        memcpy(&recordReal, (char*)data + 1, REAL_SIZE);
-        result = checkScanCondition(recordReal, compOp, value);
-    }
-    else if (attr.type == TypeVarChar)
-    {
         uint32_t varcharSize;
-        memcpy(&varcharSize, (char*)data + 1, VARCHAR_LENGTH_SIZE);
+        memcpy(&varcharSize, leftVal + offset, VARCHAR_LENGTH_SIZE);
 
         char recordString[varcharSize + 1];
-        memcpy(recordString, (char*)data + 1 + VARCHAR_LENGTH_SIZE, varcharSize);
+        memcpy(recordString, leftVal + offset + VARCHAR_LENGTH_SIZE, varcharSize);
 
         recordString[varcharSize] = '\0';
 
-        result = checkScanCondition(recordString, compOp, value);
+        result = checkScanCondition(recordString);
     }
-    free (data);
+    else if(attrs[attrIndex].type == TypeInt)
+    {
+	uint32_t compData;
+	memcpy(&compData, leftVal + offset, INT_SIZE);
+	result = checkScanCondition(compData);
+    }
+    else if(attrs[attrIndex].type == TypeReal)
+    {
+        float recordReal;
+        memcpy(&recordReal, leftVal + offset, REAL_SIZE);
+        result = checkScanCondition(recordReal);
+
+    }
+    if (result) printf("WOW\n");
     return result;
-*/
 }
+
+
+
+
+
+bool Filter::checkScanCondition(uint32_t recordInt)
+{
+    void * value = cond.rhsValue.data;
+    int32_t intValue;
+    CompOp compOp = cond.op;
+    memcpy (&intValue, value, INT_SIZE);
+    printf("%" PRIu32 "\n",intValue);
+    switch (compOp)
+    {
+        case EQ_OP: return recordInt == intValue;
+        case LT_OP: return recordInt < intValue;
+        case GT_OP: return recordInt > intValue;
+        case LE_OP: return recordInt <= intValue;
+        case GE_OP: return recordInt >= intValue;
+        case NE_OP: return recordInt != intValue;
+        case NO_OP: return true;
+        // Should never happen
+        default: return false;
+    }
+}
+
+
+bool Filter::checkScanCondition(float recordReal)
+{
+    void * value = cond.rhsValue.data;
+    float realValue;
+    memcpy (&realValue, value, REAL_SIZE);
+    CompOp compOp = cond.op;
+    switch (compOp)
+    {
+        case EQ_OP: return recordReal == realValue;
+        case LT_OP: return recordReal < realValue;
+        case GT_OP: return recordReal > realValue;
+        case LE_OP: return recordReal <= realValue;
+        case GE_OP: return recordReal >= realValue;
+        case NE_OP: return recordReal != realValue;
+        case NO_OP: return true;
+        // Should never happen
+        default: return false;
+    }
+}
+
+bool Filter::checkScanCondition(char *recordString)
+{
+    void * value = cond.rhsValue.data;
+    CompOp compOp = cond.op;
+    if (compOp == NO_OP)
+        return true;
+
+    int32_t valueSize;
+    memcpy(&valueSize, value, VARCHAR_LENGTH_SIZE);
+    char valueStr[valueSize + 1];
+
+    valueStr[valueSize] = '\0';
+
+    memcpy(valueStr, (char*) value + VARCHAR_LENGTH_SIZE, valueSize);
+
+    int cmp = strcmp(recordString, valueStr);
+    switch (compOp)
+    {
+        case EQ_OP: return cmp == 0;
+        case LT_OP: return cmp <  0;
+        case GT_OP: return cmp >  0;
+        case LE_OP: return cmp <= 0;
+        case GE_OP: return cmp >= 0;
+        case NE_OP: return cmp != 0;
+        // Should never happen
+        default: return false;
+    }
+}
+

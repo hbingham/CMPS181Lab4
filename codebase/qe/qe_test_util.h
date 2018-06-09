@@ -361,7 +361,6 @@ void prepareLeftVarCharTuple(int attributeCount, unsigned char *nullAttributesIn
 // Prepare the tuple to right var char table in the format conforming to Insert/Update/ReadTuple and readAttribute
 void prepareRightVarCharTuple(int attributeCount, unsigned char *nullAttributesIndicator, int length, const string b, float c, void *buf) {
 	int offset = 0;
-
 	// Null-indicators
     bool nullBit = false;
     int nullAttributesIndicatorActualSize = getActualByteForNullsIndicator(attributeCount);
@@ -382,7 +381,7 @@ void prepareRightVarCharTuple(int attributeCount, unsigned char *nullAttributesI
 		memcpy((char *) buf + offset, b.c_str(), length);
 		offset += length;
 	}
-	
+
 	// Is the C field not-NULL?
 	nullBit = nullAttributesIndicator[0] & (1 << 6);
 	if (!nullBit) {
@@ -600,6 +599,7 @@ int populateRightVarCharTable() {
 		// Prepare the tuple data for insertion
 		int length = (i % 26) + 1;
 		string b = string(length, '\0');
+
 		for (int j = 0; j < length; j++) {
 			b[j] = 96 + length;
 		}
@@ -611,6 +611,7 @@ int populateRightVarCharTable() {
 		if (rc != success) {
 			goto clean_up;
 		}
+
 	}
 
 clean_up:

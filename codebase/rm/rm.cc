@@ -295,17 +295,23 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
 
 RC RelationManager::insertTuple(const string &tableName, const void *data, RID &rid)
 {
+printf("1\n");
     IndexManager *ixm = IndexManager::instance();
     RecordBasedFileManager *rbfm = RecordBasedFileManager::instance();
     RC rc;
     // If this is a system table, we cannot modify it
     bool isSystem;
     rc = isSystemTable(isSystem, tableName);
+printf("2\n");
     if (rc)
+{
+printf("RC: %d\n", rc);
         return rc;
+}
+printf("2.1\n");
     if (isSystem)
         return RM_CANNOT_MOD_SYS_TBL;
-
+printf("3\n");
     // Get recordDescriptor
     vector<Attribute> recordDescriptor;
     rc = getAttributes(tableName, recordDescriptor);
@@ -393,24 +399,31 @@ RC RelationManager::insertTuple(const string &tableName, const void *data, RID &
         
         //get ixFileHandle
         IXFileHandle ix;
+printf("before openfile\n");
         rc = ixm->openFile(getIndexFileName(tableName, attr.attr.name), ix);
         if (rc)
             return rc;
-       
+
+      printf("after openfile\n");
+ 
         void *key = malloc(attr.attr.length);
         //get key from the record we just stored
         rbfm->readAttribute(fileHandle, recordDescriptor, rid, attr.attr.name, key);
        
         //insert tuple into index
         RID rd;
+printf("before insertEntry\n");
+
         rc = ixm->insertEntry(ix, attr.attr, key, rd);
         if (rc)
             return rc;
+printf("after insert entry\n");
     }
     rbfm_si.close();
     free(dat);
     free(scanValue);
     if (rc == RM_EOF) return SUCCESS;
+    printf("preRet\n");
     return rc;
 }
 
